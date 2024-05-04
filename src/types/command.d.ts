@@ -1,0 +1,20 @@
+import { Message, ChatInputCommandInteraction, APIApplicationCommandBasicOption } from "discord.js";
+import { DiscordClient } from "../QuickEasyDiscordjs";
+
+
+export declare interface PrefixCommands extends Record<string, unknown> {
+    readonly name: string
+    readonly description: string
+    aliases?: Array<string>
+    adminOnly?: boolean
+
+    callback(client: DiscordClient, message: Message, args: string[]): Promise<void | unknown>
+}
+
+export declare interface SlashCommands extends Record<string, unknown> {
+    name: string
+    description: string
+    options?: APIApplicationCommandBasicOption[]
+
+    callback(client: DiscordClient, interaction: ChatInputCommandInteraction): Promise<void | unknown>
+}

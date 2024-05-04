@@ -1,0 +1,33 @@
+{
+  "name": "qe-discordjs",
+  "description": "a quick and easy utils for discord bot developers using discord.js",
+  "version": "0.0.1",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.12.8",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "discord.js": "^14.14.1"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["discord"],
+  "author": "Iampierrot",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/IamPierrot/bank-api/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/IamPierrot/bank-api/#README"
+}
