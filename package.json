@@ -23,11 +23,15 @@
   "keywords": ["discord"],
   "author": "Iampierrot",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IamPierrot/quick-easy-discordjs.git"
+  },
   "bugs": {
-    "url": "https://github.com/IamPierrot/bank-api/issues"
+    "url": "https://github.com/IamPierrot/quick-easy-discordjs/issues"
   },
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/IamPierrot/bank-api/#README"
+  "homepage": "https://github.com/IamPierrot/quick-easy-discordjs/#README"
 }
