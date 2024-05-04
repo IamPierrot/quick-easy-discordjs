@@ -1,5 +1,5 @@
 {
-  "name": "qe-discordjs",
+  "name": "quick-easy-discordjs",
   "description": "a quick and easy utils for discord bot developers using discord.js",
   "version": "0.0.1",
   "main": "./dist/index.js",
