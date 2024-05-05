@@ -11,7 +11,9 @@
     "isolatedModules": true,
     "outDir": "dist",
     "resolveJsonModule": true,
-    "noEmit": true
+    "noEmit": true,
+    "importsNotUsedAsValues": "remove",
+    "noUnusedLocals": true
   },
   "include": ["src"],
   "exclude": ["node_modules"]

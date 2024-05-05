@@ -24,3 +24,14 @@ export default function getAllFiles(directory: string, foldersOnly: boolean = fa
     }
     return fileNames;
 }
+
+export const checkDirectory = (value: string) => {
+    try {
+        const stats = fs.statSync(value);
+        if (!stats.isDirectory()) {
+            throw new Error('The path does not point to a directory!');
+        }
+    } catch (error) {
+        throw new Error(`Error checking directory: ${error}`);
+    }
+}

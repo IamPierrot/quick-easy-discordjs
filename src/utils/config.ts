@@ -1,13 +1,15 @@
-import { Config } from "../types/config";
+import {  ConfigPath, QEOption } from "../types/config";
 
-export class Option implements Config {
-    public EventPath: string;
-    public PrefixCommandPath: string;
-    public SlashCommandPath: string;
+export class Option implements QEOption {
+    public EventPath?: string;
+    public PrefixCommandPath?: string;
+    public SlashCommandPath?: string;
+    public useDefault: boolean;
 
-    constructor(options?: Config) {
-        this.EventPath = options?.EventPath || "";
-        this.PrefixCommandPath = options?.PrefixCommandPath || "";
-        this.SlashCommandPath = options?.SlashCommandPath || "";
+    constructor(options?: ConfigPath & QEOption) {
+        this.EventPath = options?.EventPath;
+        this.PrefixCommandPath = options?.PrefixCommandPath;
+        this.SlashCommandPath = options?.SlashCommandPath
+        this.useDefault = options?.useDefault || true;
     }
 }

@@ -1,5 +1,5 @@
 import { Message, ChatInputCommandInteraction, APIApplicationCommandBasicOption } from "discord.js";
-import { DiscordClient } from "../QuickEasyDiscordjs";
+import { DiscordClient } from "../QuickEasyDiscordJs";
 
 
 export declare interface PrefixCommands extends Record<string, unknown> {

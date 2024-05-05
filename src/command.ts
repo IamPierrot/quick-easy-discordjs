@@ -1,6 +1,6 @@
 import { APIApplicationCommandBasicOption, CacheType, ChatInputCommandInteraction, Message } from "discord.js";
 import { PrefixCommands, SlashCommands } from "./types/command";
-import { DiscordClient } from "./QuickEasyDiscordjs";
+import { DiscordClient } from "./QuickEasyDiscordJs";
 
 export class PrefixCommand implements PrefixCommands {
     [x: string]: unknown;
