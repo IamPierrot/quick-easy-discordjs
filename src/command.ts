@@ -8,13 +8,15 @@ export class PrefixCommand implements PrefixCommands {
     description: string;
     aliases?: string[] | undefined;
     adminOnly?: boolean | undefined;
+    category: string;
     async callback(client: DiscordClient, message: Message<boolean>, args: string[]): Promise<unknown> {
         throw new Error("This callback is not implentation. use setCallBack to implement it.")
     }
     
-    constructor(name?: string, description?: string) {
+    constructor(name?: string, description?: string, category?: string) {
         this.name = name || "";
         this.description = description || "";
+        this.category = category || "";
     }
 
     public setName(name: string) {
@@ -33,6 +35,10 @@ export class PrefixCommand implements PrefixCommands {
         this.aliases = aliases;
         return this;
     }
+    public setCategory(category: string) {
+        this.category = category;
+        return this;
+    }
 
 }
 export class SlashCommand implements SlashCommands {
@@ -41,13 +47,15 @@ export class SlashCommand implements SlashCommands {
     description: string;
     adminOnly?: boolean | undefined;
     options?: APIApplicationCommandBasicOption[] | undefined;
+    category: string;
     callback(client: DiscordClient, interaction: ChatInputCommandInteraction<CacheType>): Promise<unknown> {
-        throw new Error("This callback is not implentation. use setCallBack to implement it.");
+        throw new Error("This callback is not implemented. use setCallBack to implement it.");
     }
     
-    constructor(name?: string, description?: string) {
+    constructor(name?: string, description?: string, category?: string) {
         this.name = name || "";
         this.description = description || "";
+        this.category = category || "";
     }
 
     public setName(name: string) {
@@ -64,6 +72,10 @@ export class SlashCommand implements SlashCommands {
     }
     public setOption(option: APIApplicationCommandBasicOption[]) {
         this.options = option;
+    }
+    public setCategory(category: string) {
+        this.category = category;
+        return this;
     }
 
 }

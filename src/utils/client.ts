@@ -1,71 +1,77 @@
 import { Client, ClientOptions, GatewayIntentBits, Partials } from "discord.js";
 import { PrefixCommands, SlashCommands } from "../types/command";
-import getAllFiles, { checkDirectory } from "./file";
-import path from "path";
-import { Option } from "./config";
+import getAllFiles, { checkDirectory, dynamicImportModule } from "./file";
+import { Option } from "./option";
 import chalk from "chalk";
 import { interactionCreate, messageCreate, ready, registerCommand } from "../default/defaultEvent";
 import { ping, pingSlash } from "../default/defaultCommand";
 import { ConfigPath, QEOption } from "../types/config";
 import { EventDiscord } from "../event";
+import { PrefixCommand } from "../command";
+import { QEEvents } from "../types/event";
+import path from "path";
 
 export class QEClient extends Client {
     readonly prefixCommands: PrefixCommands[] = [];
     readonly slashCommands: SlashCommands[] = [];
     readonly events: Map<string, ((...args: any[]) => any)[]> = new Map();
     /**
-     * @property default prefix is qe
+     * @property default prefix is qe.
+     * @uses you can type qe ping in discord.
      */
     public prefix: string = "qe";
-    private static config: Option = new Option();
+    private config: Option = new Option();
 
     private static instance: QEClient;
 
-    private prefixCommandIncluded = false;
-    private slashCommandIncluded = false;
-    private eventIncluded = false;
-
     private constructor(
-        public token: string,
-        clientOptions: ClientOptions & QEOption
+        public readonly token: string,
+        clientOptions: ClientOptions
     ) {
         super(clientOptions);
-
-        if (QEClient.config.PrefixCommandPath) this.prefixCommands = [...this.getTextCommands()];
-        if (QEClient.config.SlashCommandPath) this.slashCommands = [...this.getLocalCommands()];
-        QEClient.config.useDefault && this.useDefault();
     }
 
-    static createInstance(token: string, clientOptions: ClientOptions & QEOption = {
-        intents: Object.keys(GatewayIntentBits) as keyof object,
-        partials: Object.keys(Partials) as keyof object,
-        useDefault: true
-    },
-        configPath?: ConfigPath
-    ) {
-
-        QEClient.config.EventPath = configPath?.EventPath;
-        QEClient.config.PrefixCommandPath = configPath?.PrefixCommandPath;
-        QEClient.config.SlashCommandPath = configPath?.SlashCommandPath;
-
-        QEClient.config.useDefault = clientOptions.useDefault;
-
-        this.instance = new QEClient(token, clientOptions);
+    static createInstance(token: string) {
+        // create discord client and set client option.
+        this.instance = new QEClient(token, {
+            intents: Object.keys(GatewayIntentBits) as keyof object,
+            partials: Object.keys(Partials) as keyof object,
+        });
         return QEClient.instance;
     }
+
+    /**
+     * 
+     * @returns the instance of QEClient Objects. 
+     */
     static getInstance() {
         if (!QEClient.instance) throw new Error("This client is not implement.");
-        return QEClient.instance;
+        return this.instance;
+    }
+    /**
+     * Method used for alteration of options.
+     * @param option an option you want to change.
+     * @param value a value to change the option.
+     */
+    public useConfig<C extends keyof QEOption>(option: C, value: QEOption[C]) {
+        this.config[option] = value;
     }
 
-    private useDefault() {
-        this.includeEvent(ready);
+    private includeDefault() {
+        
         this.includeEvent(registerCommand);
-        this.includeEvent(messageCreate);
-        this.includeEvent(interactionCreate);
+        if (this.config.useDefaultHandler) {
+            this.includeEvent(ready);
+            this.includeEvent(messageCreate);
+            this.includeEvent(interactionCreate);
+        }
 
-        this.includeSlashCommand(pingSlash);
-        this.includePrefixCommand(ping);
+        if (this.config.useDefaultSlash) {
+            this.includeSlashCommand(pingSlash);
+        }
+        if (this.config.useDefaultPrefix) {
+            this.includePrefixCommand(ping);
+        }
     }
 
     /**
@@ -73,6 +79,10 @@ export class QEClient extends Client {
      * Running without shard.
      */
     public async start() {
+        this.config.eventFolderPath && await this.getEvent();
+        this.config.prefixCommandFolderPath && await this.getTextCommands();
+        this.config.slashCommandFolderPath && await this.getSlashCommands();
+        this.config.useDefaultHandler && this.includeDefault();
         try {
             await this.eventHandler();
             await this.login(this.token);
@@ -84,68 +94,43 @@ export class QEClient extends Client {
 
     /**
      * A method used for addition of custom Event, Prefix and Slash folder.
-     * @param key may a "EventPath", "PrefixCommandPath" or "SlashCommandPath"
+     * @param key may a "eventFolderPath", "prefixCommandFolderPath" or "slashCommandFolderPath"
      * @param directory a folder path to key.
-     * @throws exception caused by the path should be a path of folder.
-     * @exception can not be used before or after using includePrefixCommand, includeEvent and includeSlashCommand
+     * @throws exception caused by the path should be a path of a folder.
+     * @example client.includePath('EventPath', path.join("your path here"));
      */
     public includePath<K extends keyof ConfigPath>(key: K, directory: string) {
-        const value = path.join(directory);
+        const mainFilePath = require.main?.filename;    
+        const value = path.resolve(path.dirname(mainFilePath!), directory);
+        
         checkDirectory(value);
-
-        switch (key) {
-            case "PrefixCommandPath":
-                if (this.prefixCommandIncluded)
-                    throw new Error("Prefix command path cannot be included after prefix commands have been set. Please choose one method of inclusion.");
-
-                break;
-            case "EventPath":
-                if (this.eventIncluded)
-                    throw new Error("Event path cannot be included after events have been set. Please choose one method of inclusion.");
-
-                break;
-            case "SlashCommandPath":
-                if (this.slashCommandIncluded)
-                    throw new Error("Slash command path cannot be included after slash commands have been set. Please choose one method of inclusion.");
-
-                break;
-            default:
-                QEClient.config[key] = value.replace(/\\/g, '/');
-                break;
-        }
+        this.config[key] = value.replace(/\\/g, '/');
     }
     /**
      * A method used for addition of custom Prefix commands.
      * @param command  a command created by PrefixCommand class.
-     * @throws can not be used if prefix command has been set by includePath
      */
     public includePrefixCommand(command: PrefixCommands) {
-        if (QEClient.config.PrefixCommandPath) throw new Error("Prefix command path cannot be included after prefix path have been set. Please choose one method of inclusion.");
         this.prefixCommands.push(command);
         console.log(chalk.green(`✔️  Prefix Command ${chalk.blue.bold(command.name)} is added`))
     }
     /**
      * A method used for addition of custom Slash commands.
      * @param command  a command created by SlashCommand class.
-     * @throws can not be used if slash command has been set by includePath
      */
     public includeSlashCommand(command: SlashCommands) {
-        if (QEClient.config.SlashCommandPath) throw new Error("Prefix command path cannot be included after slash path have been set. Please choose one method of inclusion.");
         this.slashCommands.push(command);
         console.log(chalk.cyan(`✔️  Slash Command ${chalk.white.bold(command.name)} is added`))
     }
-
-     /**
-     * A method used for addition of custom event that have been set on discord.
-     * @param event a event name. if you are using code IDE it may suggest you event name.
-     * @param listner a call back for that event.
-     * @throws can not be used if event has been set by includePath
-     * @example client.includeEvent('ready', async () => console.log("Bot is ready!"));
-     */
+    /**
+    * A method used for addition of custom event that have been set on discord.
+    * @param event a event name. if you are using code IDE it may suggest you event name.
+    * @param listner a call back for that event.
+    * @example client.includeEvent('ready', async () => console.log("Bot is ready!"));
+    */
     public includeEvent(event: EventDiscord<any>) {
         const eventName = event.getEventName();
         const eventListener = event.getListner();
-        if (QEClient.config.EventPath) throw new Error("Event path cannot be included after events have been set. Please choose one method of inclusion.");
         if (this.events.has(eventName)) {
             this.events.get(eventName)?.push(eventListener);
             console.log(chalk.yellow(`✔️  Event ${chalk.red.bold(eventName)} push more listener!`));
@@ -169,67 +154,72 @@ export class QEClient extends Client {
     }
 
     private async eventHandler() {
-        if (QEClient.config.EventPath) {
-            try {
-                const eventFolders: string[] | undefined = getAllFiles(QEClient.config.EventPath, true);
-                if (!eventFolders) throw new Error('No folders events have been found');
-                for (const eventFolder of eventFolders) {
-                    const eventFiles = getAllFiles(eventFolder);
-                    eventFiles.sort((a, b) => a > b ? 1 : 0);
-
-                    const eventName = eventFolder.replace(/\\/g, '/').split('/').pop();
-                    if (!eventName) throw new Error('Invalid eventName');
-
-                    this.on(eventName, async (...args: unknown[]) => {
-                        for (const eventFile of eventFiles) {
-                            const eventFunction = require(eventFile);
-                            await eventFunction(this, ...args);
-                        }
-                    });
-                }
-            } catch (error) {
-                console.log("There was an error in event handle", error);
-            }
-        } else {
+        try {
             for (const [eventName, listeners] of this.events.entries()) {
                 for (const listener of listeners) {
                     this.on(eventName, listener);
                 }
             }
+        } catch (error) {
+            console.log(chalk.red('There was an error while running events: ', error));
+            console.log(chalk.red('Please fix as soon as possible.'))
         }
     }
 
-    private *getTextCommands(exceptions: string[] = []) {
-
-        const commandCategories = getAllFiles(QEClient.config.PrefixCommandPath!, true);
-        for (const commandCategory of commandCategories) {
-            const commandFiles = getAllFiles(commandCategory);
-
-            for (const commandFile of commandFiles) {
-                const commandObject: PrefixCommands = require(commandFile);
-                if (exceptions.includes(commandObject.name)) {
-                    continue;
-                }
-                yield commandObject;
-            }
+    private async getEvent(exception: string[] = []) {
+        const eventFolders: string[] = getAllFiles(this.config.eventFolderPath, true);
+        if (!eventFolders || eventFolders.length === 0) {
+            throw new Error('No folders events have been found');
         }
+
+        await Promise.all(eventFolders.map(async (eventFolder) => {
+            const eventFiles = getAllFiles(eventFolder);
+            if (!eventFiles) return;
+
+            const eventName = eventFolder.replace(/\\/g, '/').split('/').pop() as keyof QEEvents;
+            if (!eventName || exception.includes(eventName)) return;
+            const eventObjects: EventDiscord<any>[] = await Promise.all(eventFiles.map(file => dynamicImportModule(file)));
+
+            for (const eventObject of eventObjects) {
+                this.includeEvent(this.config.useFolderNameAsCategory ?
+                    new EventDiscord(eventName).setListner(eventObject.getListner()) :
+                    eventObject);
+            }
+        }));
     }
 
-    private *getLocalCommands(exceptions: string[] = []) {
-        const commandCategories = getAllFiles(QEClient.config.SlashCommandPath!, true);
 
-        for (const commandCategory of commandCategories) {
+    private async getTextCommands(exceptions: string[] = []) {
+        const commandCategories = getAllFiles(this.config.prefixCommandFolderPath, true);
+
+        await Promise.all(commandCategories.map(async commandCategory => {
             const commandFiles = getAllFiles(commandCategory);
+            const commandCategoryName = commandCategory.replace(/\\/g, '/').split('/').pop();
 
-
-            for (const commandFile of commandFiles) {
-                const commandObject: SlashCommands = require(commandFile);
-
-                if (exceptions.includes(commandObject.name)) {
-                    continue;
-                }
-                yield commandObject;
+            const commandObjects: PrefixCommand[] = await Promise.all(commandFiles.map(file => dynamicImportModule(file)));
+            for (const commandObject of commandObjects) {
+                if (exceptions.includes(commandObject.name)) continue;
+                this.config.useFolderNameAsCategory && commandObject.setCategory(commandCategoryName!);
+                this.includePrefixCommand(commandObject);
             }
-        }
+
+        }));
+    }
+
+    private async getSlashCommands(exceptions: string[] = []) {
+        const commandCategories = getAllFiles(this.config.slashCommandFolderPath, true);
+
+        await Promise.all(commandCategories.map(async commandCategory => {
+            const commandFiles = getAllFiles(commandCategory);
+            const commandCategoryName = commandCategory.replace(/\\/g, '/').split('/').pop();
+
+            const commandObjects: PrefixCommand[] = await Promise.all(commandFiles.map(file => dynamicImportModule(file)));
+            for (const commandObject of commandObjects) {
+                if (exceptions.includes(commandObject.name)) continue;
+                this.config.useFolderNameAsCategory && commandObject.setCategory(commandCategoryName!);
+                this.includePrefixCommand(commandObject);
+            }
+
+        }));
     }
 }

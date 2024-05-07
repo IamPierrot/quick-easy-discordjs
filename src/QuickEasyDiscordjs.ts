@@ -1,9 +1,12 @@
-import { ClientOptions } from "discord.js";
 import { QEClient } from "./utils/client";
-import { QEOption } from "./types/config";
 
-export const quickEasyDiscordJs = (token: string, clientOptions?: ClientOptions & QEOption) => {
-    return QEClient.createInstance(token, clientOptions);
+/**
+* 
+* @param token a token on {@link https://discord.com/developers/docs/quick-start/getting-started Discord Developer Portal}
+* @returns The {@link QEClient QEClient class}
+*/
+export const quickEasyDiscordJs = (token: string) => {
+    return QEClient.createInstance(token);
 }
 
 export type DiscordClient = QEClient;
