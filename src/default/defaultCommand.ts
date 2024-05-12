@@ -1,5 +1,5 @@
 import { EmbedBuilder } from "discord.js";
-import { PrefixCommand, SlashCommand } from "../command";
+import { PrefixCommand, SlashCommand } from "../classes";
 
 export const ping = new PrefixCommand()
     .setName("ping")

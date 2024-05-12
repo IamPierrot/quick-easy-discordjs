@@ -1,4 +1,4 @@
-import { Client, ClientOptions, GatewayIntentBits, Partials } from "discord.js";
+import { Client, ClientOptions, Collection, GatewayIntentBits, Partials } from "discord.js";
 import { PrefixCommands, SlashCommands } from "../types/command";
 import getAllFiles, { checkDirectory, dynamicImportModule } from "./file";
 import { Option } from "./option";
@@ -6,21 +6,22 @@ import chalk from "chalk";
 import { interactionCreate, messageCreate, ready, registerCommand } from "../default/defaultEvent";
 import { ping, pingSlash } from "../default/defaultCommand";
 import { ConfigPath, QEOption } from "../types/config";
-import { EventDiscord } from "../event";
-import { PrefixCommand } from "../command";
 import { QEEvents } from "../types/event";
 import path from "path";
+import { EventDiscord, PrefixCommand, SlashCommand } from "../classes";
 
 export class QEClient extends Client {
     readonly prefixCommands: PrefixCommands[] = [];
     readonly slashCommands: SlashCommands[] = [];
     readonly events: Map<string, ((...args: any[]) => any)[]> = new Map();
+    readonly cooldowns: Collection<string, Collection<string, number>> = new Collection();
     /**
      * @property default prefix is qe.
      * @uses you can type qe ping in discord.
      */
     public prefix: string = "qe";
     private config: Option = new Option();
+    public localGuild: string = "";
 
     private static instance: QEClient;
 
@@ -79,6 +80,7 @@ export class QEClient extends Client {
      * Running without shard.
      */
     public async start() {
+        if (this.config.uselocalCommand && !this.localGuild) throw new Error("Invalid local guild id, Use setLocalGuildId to set local guild."); 
         this.config.eventFolderPath && await this.getEvent();
         this.config.prefixCommandFolderPath && await this.getTextCommands();
         this.config.slashCommandFolderPath && await this.getSlashCommands();
@@ -124,13 +126,12 @@ export class QEClient extends Client {
     }
     /**
     * A method used for addition of custom event that have been set on discord.
-    * @param event a event name. if you are using code IDE it may suggest you event name.
-    * @param listner a call back for that event.
-    * @example client.includeEvent('ready', async () => console.log("Bot is ready!"));
+    * @param event a EventDiscord class.
+    * @example client.includeEvent(new EventDiscord('ready').setListener(async (client) => console.log("bot is ready!")));
     */
     public includeEvent(event: EventDiscord<any>) {
         const eventName = event.getEventName();
-        const eventListener = event.getListner();
+        const eventListener = event.getListener();
         if (this.events.has(eventName)) {
             this.events.get(eventName)?.push(eventListener);
             console.log(chalk.yellow(`✔️  Event ${chalk.red.bold(eventName)} push more listener!`));
@@ -142,13 +143,20 @@ export class QEClient extends Client {
 
     public setPrefix(prefix: string) {
         this.prefix = prefix;
+        return this;
+    }
+    public setLocalGuildId(Id: string) {
+        this.localGuild = Id;
+        return this;
     }
 
     public async getTotalGuild() {
-        const guild = await this.shard?.fetchClientValues('guilds.cache.size') as unknown as number[];
+        if (!this.shard) throw new Error("Bot is not using shard?");
+        const guild = await this.shard.fetchClientValues('guilds.cache.size') as unknown as number[];
         return guild?.reduce((total, guildacc) => total + guildacc, 0);
     }
     public async getTotalMember() {
+        if (!this.shard) throw new Error("Bot is not using shard?");
         const member = await this.shard?.broadcastEval(c => c.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0));
         return member?.reduce((total, mem) => total + mem, 0)!;
     }
@@ -182,7 +190,7 @@ export class QEClient extends Client {
 
             for (const eventObject of eventObjects) {
                 this.includeEvent(this.config.useFolderNameAsCategory ?
-                    new EventDiscord(eventName).setListner(eventObject.getListner()) :
+                    new EventDiscord(eventName).setListener(eventObject.getListener()) :
                     eventObject);
             }
         }));
@@ -213,11 +221,11 @@ export class QEClient extends Client {
             const commandFiles = getAllFiles(commandCategory);
             const commandCategoryName = commandCategory.replace(/\\/g, '/').split('/').pop();
 
-            const commandObjects: PrefixCommand[] = await Promise.all(commandFiles.map(file => dynamicImportModule(file)));
+            const commandObjects: SlashCommand[] = await Promise.all(commandFiles.map(file => dynamicImportModule(file)));
             for (const commandObject of commandObjects) {
                 if (exceptions.includes(commandObject.name)) continue;
                 this.config.useFolderNameAsCategory && commandObject.setCategory(commandCategoryName!);
-                this.includePrefixCommand(commandObject);
+                this.includeSlashCommand(commandObject);
             }
 
         }));

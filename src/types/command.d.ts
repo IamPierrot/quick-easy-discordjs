@@ -6,6 +6,7 @@ export declare interface PrefixCommands extends Record<string, unknown> {
     readonly name: string
     readonly description: string
     readonly category: string
+    cooldowns: number
     aliases?: Array<string>
     adminOnly?: boolean
 
@@ -16,6 +17,7 @@ export declare interface SlashCommands extends Record<string, unknown> {
     readonly name: string
     readonly description: string
     readonly category: string
+    cooldowns: number
     options?: APIApplicationCommandBasicOption[]
 
     callback(client: DiscordClient, interaction: ChatInputCommandInteraction): Promise<void | unknown>

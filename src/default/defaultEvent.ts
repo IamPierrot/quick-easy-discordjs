@@ -1,9 +1,9 @@
-import { ActivityOptions, ActivityType, EmbedBuilder, GuildMember, Interaction, Message } from "discord.js";
+import { ActivityOptions, ActivityType, Collection, EmbedBuilder, GuildMember, Interaction, Message, PermissionFlagsBits, PermissionsBitField } from "discord.js";
 import chalk from "chalk";
 import { DiscordClient } from "../QuickEasyDiscordJs";
 import { areCommandsDifferent } from "../utils/checkCommand";
 import { QEClient } from "../utils/client";
-import { EventDiscord } from "../event";
+import { EventDiscord } from "../classes";
 
 const status: ActivityOptions[] = [
     {
@@ -13,7 +13,7 @@ const status: ActivityOptions[] = [
     }
 ]
 
-export const ready = new EventDiscord('ready').setListner(async (client: DiscordClient = QEClient.getInstance()) => {
+export const ready = new EventDiscord('ready').setListener(async (client: DiscordClient = QEClient.getInstance()) => {
     if (!client.user) throw new Error('Cook');
 
     setInterval(() => {
@@ -24,13 +24,13 @@ export const ready = new EventDiscord('ready').setListner(async (client: Discord
     console.log(chalk.green(`✔️  Logged ${chalk.magenta.bold(client.user.tag)} into discord!?!!`));
 }
 );
-export const registerCommand = new EventDiscord('ready').setListner(
+export const registerCommand = new EventDiscord('ready').setListener(
     async (client: DiscordClient = QEClient.getInstance()) => {
         try {
             const localCommands = client.slashCommands;
             const applicationCommands = await getApplicationCommands(
                 client,
-                ""
+                client.localGuild
             );
             if (!applicationCommands) return;
             const listApllicationcommands = Array.from(applicationCommands?.cache).map(command => command[0]);
@@ -93,19 +93,19 @@ export const registerCommand = new EventDiscord('ready').setListner(
     }
 )
 const getApplicationCommands = async (client: DiscordClient = QEClient.getInstance(), guildId: string) => {
-    // let applicationCommands;
-
-    const applicationCommands = client.application!.commands;
-    // if (guildId !== '') {
-    //      const guild = await client.guilds.fetch(guildId);
-    //      applicationCommands = guild.commands;
-    // } else if (configure.app.global) {
-    // }
+    
+    let applicationCommands;
+    if (guildId !== '') {
+        const guild = await client.guilds.fetch(guildId);
+        applicationCommands = guild.commands;
+    } else {
+        applicationCommands = client.application!.commands;
+    }
 
     await applicationCommands?.fetch({});
     return applicationCommands;
 }
-export const messageCreate = new EventDiscord('messageCreate').setListner(
+export const messageCreate = new EventDiscord('messageCreate').setListener(
     async (message: Message<boolean>, client: DiscordClient = QEClient.getInstance()) => {
         try {
             if (message.author.bot) return;
@@ -122,7 +122,48 @@ export const messageCreate = new EventDiscord('messageCreate').setListner(
             );
             if (!commandObject || !message.member) return;
 
-            // if (commandObject?.adminOnly && (!configure.opt.idDev.includes(message.author.id))) return message.reply("Bạn không có quyền dùng lệnh này!");
+            // Cooldowns
+            if (!client.cooldowns.has(commandObject.name)) {
+                client.cooldowns.set(commandObject.name, new Collection());
+            }
+
+            const now = Date.now();
+            const timestamps = client.cooldowns.get(commandObject.name)!;
+            const cooldownAmount = (commandObject.cooldowns) * 1000;
+
+            if (timestamps.has(message.author.id)) {
+                const expirationTime = timestamps.get(message.author.id)! + cooldownAmount;
+
+                if (now < expirationTime) {
+                    const timeLeftInSeconds = Math.floor((expirationTime - now) / 1000);
+                    const hours = Math.floor(timeLeftInSeconds / 3600);
+                    const minutes = Math.floor((timeLeftInSeconds % 3600) / 60);
+                    const seconds = timeLeftInSeconds % 60;
+
+                    let timeLeftString = "";
+                    if (hours > 0) {
+                        timeLeftString += `${hours} giờ `;
+                    }
+                    if (minutes > 0) {
+                        timeLeftString += `${minutes} phút `;
+                    }
+                    if (seconds > 0) {
+                        timeLeftString += `${seconds} giây `;
+                    }
+
+                    return message.reply(`Vui lòng chờ ${timeLeftString}để dùng lại lệnh \`${commandObject.name}\``)
+                        .then((msg) => {
+                            setTimeout(() => {
+                                msg.delete();
+                            }, 5000);
+                        });;
+                }
+            }
+
+            timestamps.set(message.author.id, now);
+            setTimeout(() => timestamps.delete(message.author.id), cooldownAmount);
+
+            if (commandObject?.adminOnly && (!message.member.permissions.has([PermissionFlagsBits.ManageGuild], true))) return message.reply("Bạn không có quyền dùng lệnh này!").then((msg) => setTimeout(() => msg.delete(), 3000));
 
             if (commandObject?.voiceChannel) {
                 if (!message.member.voice.channel) return await message.reply({ embeds: [new EmbedBuilder().setColor('#ff0000').setDescription(`❌ | Bạn đang không ở trong phòng Voice`)] })
@@ -136,7 +177,7 @@ export const messageCreate = new EventDiscord('messageCreate').setListner(
     }
 );
 
-export const interactionCreate = new EventDiscord('interactionCreate').setListner(
+export const interactionCreate = new EventDiscord('interactionCreate').setListener(
     async (interaction: Interaction, client: DiscordClient = QEClient.getInstance()) => {
         try {
             if (!interaction.isChatInputCommand()) return;
@@ -147,6 +188,47 @@ export const interactionCreate = new EventDiscord('interactionCreate').setListne
             );
 
             if (!commandObject) return;
+
+            // Cooldowns
+            if (!client.cooldowns.has(commandObject.name)) {
+                client.cooldowns.set(commandObject.name, new Collection());
+            }
+
+            const now = Date.now();
+            const timestamps = client.cooldowns.get(commandObject.name)!;
+            const cooldownAmount = (commandObject.cooldowns) * 1000;
+
+            if (timestamps.has(interaction.user.id)) {
+                const expirationTime = timestamps.get(interaction.user.id)! + cooldownAmount;
+
+                if (now < expirationTime) {
+                    const timeLeftInSeconds = Math.floor((expirationTime - now) / 1000);
+                    const hours = Math.floor(timeLeftInSeconds / 3600);
+                    const minutes = Math.floor((timeLeftInSeconds % 3600) / 60);
+                    const seconds = timeLeftInSeconds % 60;
+
+                    let timeLeftString = "";
+                    if (hours > 0) {
+                        timeLeftString += `${hours} giờ `;
+                    }
+                    if (minutes > 0) {
+                        timeLeftString += `${minutes} phút `;
+                    }
+                    if (seconds > 0) {
+                        timeLeftString += `${seconds} giây `;
+                    }
+
+                    return interaction.editReply(`Vui lòng chờ ${timeLeftString}để dùng lại lệnh \`${commandObject.name}\``)
+                        .then((msg) => {
+                            setTimeout(() => {
+                                msg.delete();
+                            }, 5000);
+                        });;
+                }
+            }
+
+            timestamps.set(interaction.user.id, now);
+            setTimeout(() => timestamps.delete(interaction.user.id), cooldownAmount);
 
             // if (commandObject?.adminOnly && !configure.opt.idDev.includes(interaction.user.id)) return await interaction.editReply({
             //     embeds: [
@@ -172,32 +254,8 @@ export const interactionCreate = new EventDiscord('interactionCreate').setListne
                     })
                 }
             }
+            if (commandObject?.adminOnly && interaction.member?.permissions instanceof PermissionsBitField && (!interaction.member?.permissions.has([PermissionFlagsBits.ManageGuild], true))) return interaction.editReply("Bạn không có quyền dùng lệnh này!").then((msg) => setTimeout(() => msg.delete(), 3000));
 
-            // if (commandObject.permissionsRequired?.length) {
-            //      for (const permission of commandObject.permissionsRequired) {
-            //           if (!interaction.member.permissions.has(permission)) {
-            //                interaction.editReply({
-            //                     content: 'Not enough permissions.',
-            //                     ephemeral: true,
-            //                });
-            //                return;
-            //           }
-            //      }
-            // }
-
-            // if (commandObject.botPermissions?.length) {
-            //      for (const permission of commandObject.botPermissions) {
-            //           const bot = interaction.guild.members.me;
-
-            //           if (!bot.permissions.has(permission)) {
-            //                interaction.editReply({
-            //                     content: "I don't have enough permissions.",
-            //                     ephemeral: true,
-            //                });
-            //                return;
-            //           }
-            //      }
-            // }
             await commandObject.callback(client, interaction);
         } catch (error) {
             console.log("There was an error in interaction: ", error);

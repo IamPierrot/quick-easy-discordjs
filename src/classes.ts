@@ -1,18 +1,22 @@
-import { APIApplicationCommandBasicOption, CacheType, ChatInputCommandInteraction, Message } from "discord.js";
+import { APIApplicationCommandBasicOption, CacheType, ChatInputCommandInteraction, Message, Awaitable } from "discord.js";
 import { PrefixCommands, SlashCommands } from "./types/command";
 import { DiscordClient } from "./QuickEasyDiscordJs";
+import { QEEvents } from "./types/event";
+
+///#region Classes
 
 export class PrefixCommand implements PrefixCommands {
-    [x: string]: unknown;
-    name: string;
-    description: string;
-    aliases?: string[] | undefined;
-    adminOnly?: boolean | undefined;
-    category: string;
+    [x: string]: unknown
+    name: string
+    description: string
+    aliases?: string[] | undefined
+    adminOnly?: boolean | undefined
+    category: string
+    cooldowns: number = 1
     async callback(client: DiscordClient, message: Message<boolean>, args: string[]): Promise<unknown> {
         throw new Error("This callback is not implentation. use setCallBack to implement it.")
     }
-    
+
     constructor(name?: string, description?: string, category?: string) {
         this.name = name || "";
         this.description = description || "";
@@ -27,7 +31,7 @@ export class PrefixCommand implements PrefixCommands {
         this.description = description.toLowerCase();
         return this;
     }
-    public setCallBack(callback: (client: DiscordClient, message: Message<boolean>, args: string[]) => Promise<unknown> ) {
+    public setCallBack(callback: (client: DiscordClient, message: Message<boolean>, args: string[]) => Promise<unknown>) {
         this.callback = callback;
         return this;
     }
@@ -39,6 +43,15 @@ export class PrefixCommand implements PrefixCommands {
         this.category = category;
         return this;
     }
+    /**
+     * @param cd calculated in seconds
+     * @param cd the default cooldown is 1 second.
+     *
+     */
+    public setCooldowns(cd: number) {
+        this.cooldowns = cd;
+        return this;
+    }
 
 }
 export class SlashCommand implements SlashCommands {
@@ -48,10 +61,11 @@ export class SlashCommand implements SlashCommands {
     adminOnly?: boolean | undefined;
     options?: APIApplicationCommandBasicOption[] | undefined;
     category: string;
+    cooldowns: number = 1;
     callback(client: DiscordClient, interaction: ChatInputCommandInteraction<CacheType>): Promise<unknown> {
         throw new Error("This callback is not implemented. use setCallBack to implement it.");
     }
-    
+
     constructor(name?: string, description?: string, category?: string) {
         this.name = name || "";
         this.description = description || "";
@@ -66,7 +80,7 @@ export class SlashCommand implements SlashCommands {
         this.description = description.toLowerCase();
         return this;
     }
-    public setCallBack(callback: (client: DiscordClient, interaction: ChatInputCommandInteraction<CacheType>) => Promise<unknown> ) {
+    public setCallBack(callback: (client: DiscordClient, interaction: ChatInputCommandInteraction<CacheType>) => Promise<unknown>) {
         this.callback = callback;
         return this;
     }
@@ -77,5 +91,36 @@ export class SlashCommand implements SlashCommands {
         this.category = category;
         return this;
     }
+    /**
+    * 
+    * @param cd calculated in seconds
+    */
+    public setCooldowns(cd: number) {
+        this.cooldowns = cd;
+        return this;
+    }
 
 }
+
+export class EventDiscord<K extends keyof QEEvents> {
+    private eventName: K | null = null;
+    private listener: ((...args: QEEvents[K]) => Awaitable<void> | Promise<unknown>) | null = null;
+
+    constructor(event: K) {
+        this.eventName = event;
+    }
+
+    public setListener(listener: (...args: QEEvents[K]) => Awaitable<void> | Promise<unknown>) {
+        this.listener = listener;
+        return this;
+    }
+
+    public getEventName() {
+        return this.eventName!;
+    }
+    public getListener() {
+        return this.listener!;
+    }
+}
+
+//#endregion Classes

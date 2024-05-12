@@ -7,6 +7,7 @@ export class Option implements QEOption, ConfigPath {
     public useDefaultHandler: boolean;
     useDefaultPrefix: boolean;
     useDefaultSlash: boolean;
+    uselocalCommand: boolean;
     /**
     * @property it will block the eventName Property in EventDiscord class
     */
@@ -19,7 +20,8 @@ export class Option implements QEOption, ConfigPath {
         this.useDefaultHandler = options?.useDefaultHandler || true;
         this.useFolderNameAsCategory = options?.useFolderNameAsCategory || false;
         this.useDefaultPrefix = options?.useDefaultPrefix || true;
-        this.useDefaultSlash = options?.useDefaultSlash || false;
+        this.useDefaultSlash = options?.useDefaultSlash || true;
+        this.uselocalCommand = options?.uselocalCommand || false;
     }
 
 }
