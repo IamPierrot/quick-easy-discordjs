@@ -4,7 +4,7 @@ import getAllFiles, { checkDirectory, dynamicImportModule } from "./file";
 import { Option } from "./option";
 import chalk from "chalk";
 import { interactionCreate, messageCreate, ready, registerCommand } from "../default/defaultEvent";
-import { ping, pingSlash } from "../default/defaultCommand";
+import { ping, pingSlash, shardSlash, slashPrefix } from "../default/defaultCommand";
 import { ConfigPath, QEOption } from "../types/config";
 import { QEEvents } from "../types/event";
 import path from "path";
@@ -69,9 +69,11 @@ export class QEClient extends Client {
 
         if (this.config.useDefaultSlash) {
             this.includeSlashCommand(pingSlash);
+            this.includeSlashCommand(shardSlash);
         }
         if (this.config.useDefaultPrefix) {
             this.includePrefixCommand(ping);
+            this.includePrefixCommand(slashPrefix);
         }
     }
 
