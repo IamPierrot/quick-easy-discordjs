@@ -13,7 +13,7 @@ import { EventDiscord, PrefixCommand, SlashCommand } from "../classes";
 export class QEClient extends Client {
     readonly prefixCommands: PrefixCommands[] = [];
     readonly slashCommands: SlashCommands[] = [];
-    readonly events: Map<string, ((...args: any[]) => any)[]> = new Map();
+    readonly events: Map<string, EventDiscord<any>[]> = new Map();
     readonly cooldowns: Collection<string, Collection<string, number>> = new Collection();
     /**
      * @property default prefix is qe.
@@ -59,7 +59,7 @@ export class QEClient extends Client {
     }
 
     private includeDefault() {
-        
+
         this.includeEvent(registerCommand);
         if (this.config.useDefaultHandler) {
             this.includeEvent(ready);
@@ -82,7 +82,7 @@ export class QEClient extends Client {
      * Running without shard.
      */
     public async start() {
-        if (this.config.uselocalCommand && !this.localGuild) throw new Error("Invalid local guild id, Use setLocalGuildId to set local guild."); 
+        if (this.config.uselocalCommand && !this.localGuild) throw new Error("Invalid local guild id, Use setLocalGuildId to set local guild.");
         this.config.eventFolderPath && await this.getEvent();
         this.config.prefixCommandFolderPath && await this.getTextCommands();
         this.config.slashCommandFolderPath && await this.getSlashCommands();
@@ -104,9 +104,9 @@ export class QEClient extends Client {
      * @example client.includePath('EventPath', path.join("your path here"));
      */
     public includePath<K extends keyof ConfigPath>(key: K, directory: string) {
-        const mainFilePath = require.main?.filename;    
+        const mainFilePath = require.main?.filename;
         const value = path.resolve(path.dirname(mainFilePath!), directory);
-        
+
         checkDirectory(value);
         this.config[key] = value.replace(/\\/g, '/');
     }
@@ -133,13 +133,12 @@ export class QEClient extends Client {
     */
     public includeEvent(event: EventDiscord<any>) {
         const eventName = event.getEventName();
-        const eventListener = event.getListener();
         if (this.events.has(eventName)) {
-            this.events.get(eventName)?.push(eventListener);
+            this.events.get(eventName)?.push(event);
             console.log(chalk.yellow(`✔️  Event ${chalk.red.bold(eventName)} push more listener!`));
             return;
         };
-        this.events.set(eventName, [eventListener]);
+        this.events.set(eventName, [event]);
         console.log(chalk.yellow(`✔️  Event ${chalk.red.bold(eventName)} is added`));
     }
 
@@ -165,9 +164,10 @@ export class QEClient extends Client {
 
     private async eventHandler() {
         try {
-            for (const [eventName, listeners] of this.events.entries()) {
-                for (const listener of listeners) {
-                    this.on(eventName, listener);
+            for (const [eventName, eventObjects] of this.events.entries()) {
+                for (const eventObject of eventObjects) {
+                    if (eventObject.once) this.once(eventName, eventObject.getListener());
+                    else this.on(eventName, eventObject.getListener());
                 }
             }
         } catch (error) {

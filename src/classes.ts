@@ -53,6 +53,15 @@ export class PrefixCommand implements PrefixCommands {
         return this;
     }
 
+    /**
+      * Set a custom attribute with the specified key and value.
+      * @param key The name of the custom attribute.
+      * @param value The value to assign to the custom attribute.
+      */
+    public setCustomAttr(key: string, value: unknown) {
+        this[key] = value;
+        return this;
+    }
 }
 export class SlashCommand implements SlashCommands {
     [x: string]: unknown;
@@ -99,18 +108,28 @@ export class SlashCommand implements SlashCommands {
         this.cooldowns = cd;
         return this;
     }
-
+    public setCustomAttr(key: string, value: unknown) {
+        this[key] = value;
+        return this;
+    }
 }
 
 export class EventDiscord<K extends keyof QEEvents> {
     private eventName: K | null = null;
-    private listener: ((...args: QEEvents[K]) => Awaitable<void> | Promise<unknown>) | null = null;
+    private _once: boolean = false;
+    
+    public get once() : boolean {
+        return this._once;
+    }
+    
+    
+    private listener: ((...args: QEEvents[K]) => Awaitable<any> | Promise<unknown>) | null = null;
 
     constructor(event: K) {
         this.eventName = event;
     }
 
-    public setListener(listener: (...args: QEEvents[K]) => Awaitable<void> | Promise<unknown>) {
+    public setListener(listener: (...args: QEEvents[K]) => Awaitable<any> | Promise<unknown>) {
         this.listener = listener;
         return this;
     }
@@ -120,6 +139,10 @@ export class EventDiscord<K extends keyof QEEvents> {
     }
     public getListener() {
         return this.listener!;
+    }
+    public useOnce() {
+        this._once = true;
+        return this;
     }
 }
 

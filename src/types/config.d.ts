@@ -34,7 +34,7 @@ export declare interface QEOption {
      */
     useFolderNameAsCategory: boolean
     /**
-     * @property a choice for register only in 1 guild or global slash commands
+     * @property a choice for register slash commands in private guild or global.
      * @returns it will default to false
      */
     uselocalCommand: boolean
