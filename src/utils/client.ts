@@ -3,12 +3,12 @@ import { PrefixCommands, SlashCommands } from "../types/command";
 import getAllFiles, { checkDirectory, dynamicImportModule } from "./file";
 import { Option } from "./option";
 import chalk from "chalk";
-import { interactionCreate, messageCreate, ready, registerCommand } from "../default/defaultEvent";
-import { ping, pingSlash, shardSlash, slashPrefix } from "../default/defaultCommand";
+import { ping, pingSlash, shardSlash, shardPrefix } from "../default/defaultCommand";
 import { ConfigPath, QEOption } from "../types/config";
 import { QEEvents } from "../types/event";
 import path from "path";
 import { EventDiscord, PrefixCommand, SlashCommand } from "../classes";
+import { interactionCreate, messageCreate } from "../default/defaultEvent";
 
 export class QEClient extends Client {
     readonly prefixCommands: PrefixCommands[] = [];
@@ -60,20 +60,17 @@ export class QEClient extends Client {
 
     private includeDefault() {
 
-        this.includeEvent(registerCommand);
-        if (this.config.useDefaultHandler) {
-            this.includeEvent(ready);
-            this.includeEvent(messageCreate);
-            this.includeEvent(interactionCreate);
+        if (!this.config.useDefaultSlash) {
+            pingSlash.setDisable();
+            shardSlash.setDisable();
         }
-
-        if (this.config.useDefaultSlash) {
-            this.includeSlashCommand(pingSlash);
-            this.includeSlashCommand(shardSlash);
+        if (!this.config.useDefaultPrefix) {
+            ping.setDisable();
+            shardPrefix.setDisable();
         }
-        if (this.config.useDefaultPrefix) {
-            this.includePrefixCommand(ping);
-            this.includePrefixCommand(slashPrefix);
+        if (!this.config.useDefaultHandler) {
+            messageCreate.setDisable();
+            interactionCreate.setDisable();
         }
     }
 
@@ -83,10 +80,17 @@ export class QEClient extends Client {
      */
     public async start() {
         if (this.config.uselocalCommand && !this.localGuild) throw new Error("Invalid local guild id, Use setLocalGuildId to set local guild.");
-        this.config.eventFolderPath && await this.getEvent();
-        this.config.prefixCommandFolderPath && await this.getTextCommands();
-        this.config.slashCommandFolderPath && await this.getSlashCommands();
-        this.config.useDefaultHandler && this.includeDefault();
+        
+        // load default
+        this.includeDefault();
+        // load custom
+        
+        await this.getEvent()
+        Promise.all([
+            await this.getTextCommands(),
+            await this.getSlashCommands(),
+        ])
+
         try {
             await this.eventHandler();
             await this.login(this.token);
@@ -98,6 +102,7 @@ export class QEClient extends Client {
 
     /**
      * A method used for addition of custom Event, Prefix and Slash folder.
+     * @deprecated now the class create Prefix, Slash and Event has been automically loaded to client.
      * @param key may a "eventFolderPath", "prefixCommandFolderPath" or "slashCommandFolderPath"
      * @param directory a folder path to key.
      * @throws exception caused by the path should be a path of a folder.
@@ -114,7 +119,8 @@ export class QEClient extends Client {
      * A method used for addition of custom Prefix commands.
      * @param command  a command created by PrefixCommand class.
      */
-    public includePrefixCommand(command: PrefixCommands) {
+    private includePrefixCommand(command: PrefixCommands) {
+        if (command.isDisable) return;
         this.prefixCommands.push(command);
         console.log(chalk.green(`✔️  Prefix Command ${chalk.blue.bold(command.name)} is added`))
     }
@@ -122,7 +128,8 @@ export class QEClient extends Client {
      * A method used for addition of custom Slash commands.
      * @param command  a command created by SlashCommand class.
      */
-    public includeSlashCommand(command: SlashCommands) {
+    private includeSlashCommand(command: SlashCommands) {
+        if (command.isDisable) return;
         this.slashCommands.push(command);
         console.log(chalk.cyan(`✔️  Slash Command ${chalk.white.bold(command.name)} is added`))
     }
@@ -131,7 +138,7 @@ export class QEClient extends Client {
     * @param event a EventDiscord class.
     * @example client.includeEvent(new EventDiscord('ready').setListener(async (client) => console.log("bot is ready!")));
     */
-    public includeEvent(event: EventDiscord<any>) {
+    private includeEvent(event: EventDiscord<any>) {
         const eventName = event.getEventName();
         if (this.events.has(eventName)) {
             this.events.get(eventName)?.push(event);
@@ -177,59 +184,76 @@ export class QEClient extends Client {
     }
 
     private async getEvent(exception: string[] = []) {
-        const eventFolders: string[] = getAllFiles(this.config.eventFolderPath, true);
-        if (!eventFolders || eventFolders.length === 0) {
-            throw new Error('No folders events have been found');
-        }
+        if (this.config.eventFolderPath) {
 
-        await Promise.all(eventFolders.map(async (eventFolder) => {
-            const eventFiles = getAllFiles(eventFolder);
-            if (!eventFiles) return;
-
-            const eventName = eventFolder.replace(/\\/g, '/').split('/').pop() as keyof QEEvents;
-            if (!eventName || exception.includes(eventName)) return;
-            const eventObjects: EventDiscord<any>[] = await Promise.all(eventFiles.map(file => dynamicImportModule(file)));
-
-            for (const eventObject of eventObjects) {
-                this.includeEvent(this.config.useFolderNameAsCategory ?
-                    new EventDiscord(eventName).setListener(eventObject.getListener()) :
-                    eventObject);
+            const eventFolders: string[] = getAllFiles(this.config.eventFolderPath, true);
+            if (!eventFolders || eventFolders.length === 0) {
+                throw new Error('No folders events have been found');
             }
-        }));
+
+            await Promise.all(eventFolders.map(async (eventFolder) => {
+                const eventFiles = getAllFiles(eventFolder);
+                if (!eventFiles) return;
+
+                const eventName = eventFolder.replace(/\\/g, '/').split('/').pop() as keyof QEEvents;
+                if (!eventName || exception.includes(eventName)) return;
+                const eventObjects: EventDiscord<any>[] = await Promise.all(eventFiles.map(file => dynamicImportModule(file)));
+
+                for (const eventObject of eventObjects) {
+                    this.includeEvent(this.config.useFolderNameAsCategory ?
+                        new EventDiscord(eventName).setListener(eventObject.getListener()) :
+                        eventObject);
+                }
+            }));
+        }
+        for (const event of EventDiscord.totalEvents) {
+            !event.disable && this.includeEvent(event)
+        }
     }
 
 
     private async getTextCommands(exceptions: string[] = []) {
-        const commandCategories = getAllFiles(this.config.prefixCommandFolderPath, true);
-
-        await Promise.all(commandCategories.map(async commandCategory => {
-            const commandFiles = getAllFiles(commandCategory);
-            const commandCategoryName = commandCategory.replace(/\\/g, '/').split('/').pop();
-
-            const commandObjects: PrefixCommand[] = await Promise.all(commandFiles.map(file => dynamicImportModule(file)));
-            for (const commandObject of commandObjects) {
-                if (exceptions.includes(commandObject.name)) continue;
-                this.config.useFolderNameAsCategory && commandObject.setCategory(commandCategoryName!);
-                this.includePrefixCommand(commandObject);
-            }
-
-        }));
+        if (this.config.prefixCommandFolderPath) {
+            const commandCategories = getAllFiles(this.config.prefixCommandFolderPath, true);
+    
+            await Promise.all(commandCategories.map(async commandCategory => {
+                const commandFiles = getAllFiles(commandCategory);
+                const commandCategoryName = commandCategory.replace(/\\/g, '/').split('/').pop();
+    
+                const commandObjects: PrefixCommand[] = await Promise.all(commandFiles.map(file => dynamicImportModule(file)));
+                for (const commandObject of commandObjects) {
+                    if (exceptions.includes(commandObject.name)) continue;
+                    this.config.useFolderNameAsCategory && commandObject.setCategory(commandCategoryName!);
+                    this.includePrefixCommand(commandObject);
+                }
+    
+            }));
+        }
+        for (const prefixCommand of PrefixCommand.totalCommands) {
+            !prefixCommand.isDisable && this.includePrefixCommand(prefixCommand);
+        }
     }
 
     private async getSlashCommands(exceptions: string[] = []) {
-        const commandCategories = getAllFiles(this.config.slashCommandFolderPath, true);
+        if (this.config.slashCommandFolderPath) {
+            const commandCategories = getAllFiles(this.config.slashCommandFolderPath, true);
+    
+            await Promise.all(commandCategories.map(async commandCategory => {
+                const commandFiles = getAllFiles(commandCategory);
+                const commandCategoryName = commandCategory.replace(/\\/g, '/').split('/').pop();
+    
+                const commandObjects: SlashCommand[] = await Promise.all(commandFiles.map(file => dynamicImportModule(file)));
+                for (const commandObject of commandObjects) {
+                    if (exceptions.includes(commandObject.name)) continue;
+                    this.config.useFolderNameAsCategory && commandObject.setCategory(commandCategoryName!);
+                    this.includeSlashCommand(commandObject);
+                }
+    
+            }));
+        }
 
-        await Promise.all(commandCategories.map(async commandCategory => {
-            const commandFiles = getAllFiles(commandCategory);
-            const commandCategoryName = commandCategory.replace(/\\/g, '/').split('/').pop();
-
-            const commandObjects: SlashCommand[] = await Promise.all(commandFiles.map(file => dynamicImportModule(file)));
-            for (const commandObject of commandObjects) {
-                if (exceptions.includes(commandObject.name)) continue;
-                this.config.useFolderNameAsCategory && commandObject.setCategory(commandCategoryName!);
-                this.includeSlashCommand(commandObject);
-            }
-
-        }));
+        for (const slashCommand of SlashCommand.totalCommands) {
+            !slashCommand.isDisable && this.includeSlashCommand(slashCommand);
+        }
     }
 }

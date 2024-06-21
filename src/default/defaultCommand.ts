@@ -33,14 +33,14 @@ export const pingSlash = new SlashCommand()
 
         await interaction.editReply({ embeds: [pingEmbed] });
     });
-export const slashPrefix = new PrefixCommand()
+export const shardPrefix = new PrefixCommand()
     .setName("shard")
     .setAliases(["shards", "bot"])
     .setDescription("Xem shard của bot")
     .setCallBack(async (client, message, args) => {
         if (!client.shard) return message.reply({
             embeds: [
-                new EmbedBuilder().setTitle("Bot không có dùng shard").setColor("Red")
+                new EmbedBuilder().setTitle("Bot is not using sharding!").setColor("Red")
             ]
         });
         const table = await getShardInfo(client);
@@ -49,11 +49,11 @@ export const slashPrefix = new PrefixCommand()
     })
 export const shardSlash = new SlashCommand()
     .setName("shard")
-    .setDescription("Xem shard của bot")
+    .setDescription("Shards of Mine")
     .setCallBack(async (client, interaction) => {
         if (!client.shard) return interaction.editReply({
             embeds: [
-                new EmbedBuilder().setTitle("Bot không có dùng shard").setColor("Red")
+                new EmbedBuilder().setTitle("Bot is not using sharding!").setColor("Red")
             ]
         });
         const table = await getShardInfo(client);
@@ -97,7 +97,7 @@ const getShardInfo = async (client: QEClient) => {
     const tableResult = table(data, {
         header: {
             alignment: "center",
-            content: "Shards\nThis is the table about shard using"
+            content: "Shards\nThis is the table about shards used"
         },
         columnDefault: {
             alignment: 'center'

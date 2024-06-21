@@ -6,6 +6,8 @@ export declare interface PrefixCommands extends Record<string, unknown> {
     readonly name: string
     readonly description: string
     readonly category: string
+
+    isDisable: boolean
     cooldowns: number
     aliases?: Array<string>
     adminOnly?: boolean
@@ -17,6 +19,8 @@ export declare interface SlashCommands extends Record<string, unknown> {
     readonly name: string
     readonly description: string
     readonly category: string
+    
+    isDisable: boolean
     cooldowns: number
     options?: APIApplicationCommandBasicOption[]
 

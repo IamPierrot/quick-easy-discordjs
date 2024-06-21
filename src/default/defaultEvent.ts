@@ -30,22 +30,15 @@ export const registerCommand = new EventDiscord('ready')
         async (client: DiscordClient = QEClient.getInstance()) => {
             try {
                 const localCommands = client.slashCommands;
-                const applicationCommands = await getApplicationCommands(
-                    client,
-                    client.localGuild
-                );
+                const applicationCommands = await getApplicationCommands(client, client.localGuild);
                 if (!applicationCommands) return;
-                const listApllicationcommands = Array.from(applicationCommands?.cache).map(command => command[0]);
-                const listExistingCommands = localCommands.map(command => command.name);
 
-                for (const nameCommand of listApllicationcommands) {
-                    const command = applicationCommands?.cache.find(
-                        (cmd) => cmd.name === nameCommand
-                    );
-                    if (!command) continue;
-                    if (!listExistingCommands.includes(nameCommand)) {
-                        await applicationCommands.delete(command.id);
-                        console.log(`🗑 Deleted command "${nameCommand}" cause it does not exist".`);
+                const listExistingCommands = new Set(localCommands.map(command => command.name));
+
+                for (const [commandId, command] of applicationCommands.cache) {
+                    if (!listExistingCommands.has(command.name)) {
+                        await applicationCommands.delete(commandId);
+                        console.log(`🗑 Deleted command "${command.name}" because it does not exist locally.`);
                     }
                 }
 

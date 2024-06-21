@@ -6,6 +6,9 @@ import { QEEvents } from "./types/event";
 ///#region Classes
 
 export class PrefixCommand implements PrefixCommands {
+
+    static totalCommands: PrefixCommand[] = [];
+
     [x: string]: unknown
     name: string
     description: string
@@ -13,6 +16,8 @@ export class PrefixCommand implements PrefixCommands {
     adminOnly?: boolean | undefined
     category: string
     cooldowns: number = 1
+    isDisable: boolean = false;
+
     async callback(client: DiscordClient, message: Message<boolean>, args: string[]): Promise<unknown> {
         throw new Error("This callback is not implentation. use setCallBack to implement it.")
     }
@@ -21,6 +26,8 @@ export class PrefixCommand implements PrefixCommands {
         this.name = name || "";
         this.description = description || "";
         this.category = category || "";
+
+        PrefixCommand.totalCommands.push(this);
     }
 
     public setName(name: string) {
@@ -62,8 +69,15 @@ export class PrefixCommand implements PrefixCommands {
         this[key] = value;
         return this;
     }
+    public setDisable() {
+        this.isDisable = true;
+        return this;
+    }
 }
 export class SlashCommand implements SlashCommands {
+
+    static totalCommands: SlashCommand[] = [];
+
     [x: string]: unknown;
     name: string;
     description: string;
@@ -71,6 +85,8 @@ export class SlashCommand implements SlashCommands {
     options?: APIApplicationCommandBasicOption[] | undefined;
     category: string;
     cooldowns: number = 1;
+    isDisable: boolean = false;
+
     callback(client: DiscordClient, interaction: ChatInputCommandInteraction<CacheType>): Promise<unknown> {
         throw new Error("This callback is not implemented. use setCallBack to implement it.");
     }
@@ -79,6 +95,8 @@ export class SlashCommand implements SlashCommands {
         this.name = name || "";
         this.description = description || "";
         this.category = category || "";
+
+        SlashCommand.totalCommands.push(this);
     }
 
     public setName(name: string) {
@@ -112,10 +130,18 @@ export class SlashCommand implements SlashCommands {
         this[key] = value;
         return this;
     }
+    public setDisable() {
+        this.isDisable = true;
+        return this;
+    }
 }
 
 export class EventDiscord<K extends keyof QEEvents> {
-    private eventName: K | null = null;
+
+    static totalEvents: EventDiscord<any>[] = [];
+
+    disable: boolean = false;
+    private eventName: K;
     private _once: boolean = false;
     
     public get once() : boolean {
@@ -127,6 +153,7 @@ export class EventDiscord<K extends keyof QEEvents> {
 
     constructor(event: K) {
         this.eventName = event;
+        EventDiscord.totalEvents.push(this);
     }
 
     public setListener(listener: (...args: QEEvents[K]) => Awaitable<any> | Promise<unknown>) {
@@ -135,13 +162,18 @@ export class EventDiscord<K extends keyof QEEvents> {
     }
 
     public getEventName() {
-        return this.eventName!;
+        return this.eventName;
     }
     public getListener() {
-        return this.listener!;
+        if (!this.listener) throw new Error("Listener callback is not implemented!");
+        return this.listener;
     }
     public useOnce() {
         this._once = true;
+        return this;
+    }
+    public setDisable() {
+        this.disable = true;
         return this;
     }
 }
